@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Генератор QR-кодов</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --background: #f3f4f6;
+            --card: #ffffff;
+            --text: #111827;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background: var(--background);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+        }
+
+        .card {
+            background: var(--card);
+            padding: 2rem;
+            border-radius: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--primary);
+            margin-bottom: 1.5rem;
+            font-size: 2rem;
+        }
+
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+        }
+
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .color-picker {
+            display: flex;
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .color-option {
+            flex: 1;
+        }
+
+        .qr-container {
+            display: flex;
+            justify-content: center;
+            margin: 2rem 0;
+            position: relative;
+        }
+
+        #qrCode {
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 10px;
+            background: white;
+        }
+
+        .actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        button {
+            padding: 12px 24px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        .download-btn {
+            background: #10b981;
+        }
+
+        .logo-upload {
+            margin: 1.5rem 0;
+        }
+
+        @media (max-width: 600px) {
+            .card {
+                padding: 1.5rem;
+            }
+            
+            .color-picker {
+                flex-direction: column;
+            }
+            
+            .actions {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>🔳 Генератор QR-кодов</h1>
+            
+            <div class="input-group">
+                <label for="qrText">Ссылка или текст:</label>
+                <textarea id="qrText" placeholder="https://example.com или любой текст"></textarea>
+            </div>
+            
+            <div class="input-group">
+                <label>Цвет QR-кода:</label>
+                <div class="color-picker">
+                    <div class="color-option">
+                        <label for="foreColor">Основной цвет:</label>
+                        <input type="color" id="foreColor" value="#000000">
+                    </div>
+                    <div class="color-option">
+                        <label for="bgColor">Фон:</label>
+                        <input type="color" id="bgColor" value="#ffffff">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="logo-upload">
+                <label for="logoUpload">Добавить логотип (до 50KB):</label>
+                <input type="file" id="logoUpload" accept="image/*">
+            </div>
+            
+            <div class="qr-container">
+                <canvas id="qrCode"></canvas>
+            </div>
+            
+            <div class="actions">
+                <button id="generateBtn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2v4M4.93 6.48l2.83 2.83M2 12h4M6.48 19.07l2.83-2.83M12 22v-4M19.07 17.52l-2.83-2.83M22 12h-4M17.52 4.93l-2.83 2.83"></path>
+                    </svg>
+                    Сгенерировать
+                </button>
+                <button class="download-btn" id="downloadBtn" disabled>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path>
+                    </svg>
+                    Скачать
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const qrText = document.getElementById('qrText');
+        const foreColor = document.getElementById('foreColor');
+        const bgColor = document.getElementById('bgColor');
+        const logoUpload = document.getElementById('logoUpload');
+        const generateBtn = document.getElementById('generateBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const qrCanvas = document.getElementById('qrCode');
+        
+        let currentQR = null;
+        
+        // Генерация QR-кода
+        async function generateQR() {
+            const text = qrText.value.trim();
+            if (!text) {
+                alert('Введите текст или ссылку!');
+                return;
+            }
+            
+            try {
+                // Очищаем предыдущий QR
+                qrCanvas.width = 300;
+                qrCanvas.height = 300;
+                const ctx = qrCanvas.getContext('2d');
+                ctx.clearRect(0, 0, qrCanvas.width, qrCanvas.height);
+                
+                // Генерируем новый QR
+                await QRCode.toCanvas(qrCanvas, text, {
+                    color: {
+                        dark: foreColor.value,
+                        light: bgColor.value
+                    },
+                    width: 300,
+                    margin: 2
+                });
+                
+                // Добавляем логотип если есть
+                if (logoUpload.files[0]) {
+                    await addLogoToQR(logoUpload.files[0]);
+                }
+                
+                downloadBtn.disabled = false;
+                currentQR = qrCanvas.toDataURL('image/png');
+            } catch (err) {
+                console.error(err);
+                alert('Ошибка генерации QR-кода!');
+            }
+        }
+        
+        // Добавление логотипа
+        async function addLogoToQR(file) {
+            return new Promise((resolve) => {
+                if (file.size > 50000) {
+                    alert('Логотип слишком большой (макс. 50KB)');
+                    return resolve();
+                }
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = function() {
+                        const ctx = qrCanvas.getContext('2d');
+                        
+                        // Размер логотипа - 20% от QR
+                        const logoSize = qrCanvas.width * 0.2;
+                        const x = (qrCanvas.width - logoSize) / 2;
+                        const y = (qrCanvas.height - logoSize) / 2;
+                        
+                        // Рисуем белый фон под лого
+                        ctx.fillStyle = bgColor.value;
+                        ctx.fillRect(x, y, logoSize, logoSize);
+                        
+                        // Рисуем лого
+                        ctx.drawImage(img, x, y, logoSize, logoSize);
+                        resolve();
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        // Скачивание QR-кода
+        function downloadQR() {
+            if (!currentQR) return;
+            
+            const link = document.createElement('a');
+            link.href = currentQR;
+            link.download = 'qr-code.png';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        // Обработчики событий
+        generateBtn.addEventListener('click', generateQR);
+        downloadBtn.addEventListener('click', downloadQR);
+        
+        // Автогенерация при изменении параметров
+        [qrText, foreColor, bgColor].forEach(el => {
+            el.addEventListener('change', generateQR);
+        });
+        
+        logoUpload.addEventListener('change', function() {
+            if (qrText.value.trim()) {
+                generateQR();
+            }
+        });
+        
+        // Первая генерация
+        qrText.value = 'https://example.com';
+        generateQR();
+    </script>
+</body>
+</html>
